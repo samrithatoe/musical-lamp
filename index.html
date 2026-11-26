@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🦆 ហ្គេមប្រណាំងទាហែលទឹក (Realistic Duck + Countdown)</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Battambang:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Battambang', sans-serif;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            margin: 0;
+            padding: 15px;
+            background: linear-gradient(135deg, #0284c7, #0369a1);
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .header-bar {
+            width: 100%;
+            max-width: 960px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        h1 {
+            margin: 0;
+            font-size: 24px;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+        }
+        .sound-toggle {
+            background: rgba(255,255,255,0.2);
+            border: 2px solid #fff;
+            color: #fff;
+            padding: 6px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .container {
+            width: 100%;
+            max-width: 960px;
+            background: rgba(255, 255, 255, 0.97);
+            color: #333;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+        }
+        .role-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .card {
+            background: #f0f9ff;
+            border: 2px solid #bae6fd;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0, 131, 176, 0.2);
+            border-color: #0284c7;
+        }
+        .card-icon { font-size: 50px; }
+        .hidden { display: none !important; }
+        
+        .control-panel {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: space-between;
+            align-items: center;
+            background: #e0f2fe;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+        .qr-box {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            background: #fff;
+            padding: 10px;
+            border-radius: 10px;
+            border: 2px solid #bae6fd;
+        }
+        .room-badge {
+            font-size: 28px;
+            font-weight: bold;
+            color: #0369a1;
+            letter-spacing: 3px;
+        }
+        input[type="text"], input[type="number"] {
+            padding: 10px 15px;
+            font-size: 16px;
+            border: 2px solid #cbd5e1;
+            border-radius: 8px;
+            width: 100%;
+            margin-top: 5px;
+            margin-bottom: 15px;
+        }
+        button {
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.2s;
+            color: white;
+        }
+        .btn-primary { background: #0284c7; width: 100%; }
+        .btn-primary:hover { background: #0369a1; }
+        .btn-start { background: #16a34a; }
+        .btn-start:hover { background: #15803d; }
+        .btn-start:disabled { background: #94a3b8; cursor: not-allowed; }
+        .btn-reset { background: #ea580c; }
+        .btn-reset:hover { background: #c2410c; }
+
+        /* ផ្ទាំងរាប់ថយក្រោយ (Countdown Overlay) */
+        .countdown-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(3, 105, 161, 0.55);
+            backdrop-filter: blur(2px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+            pointer-events: none;
+        }
+        .countdown-text {
+            font-size: 85px;
+            font-weight: bold;
+            color: #fde047;
+            text-shadow: 0 4px 0 #b45309, 0 10px 25px rgba(0,0,0,0.6);
+            animation: popScale 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        .countdown-go {
+            color: #4ade80;
+            text-shadow: 0 4px 0 #15803d, 0 10px 25px rgba(0,0,0,0.6);
+        }
+        @keyframes popScale {
+            0% { transform: scale(0.2); opacity: 0; }
+            50% { transform: scale(1.25); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* ទីលានប្រណាំងទឹករលក */
+        .race-track {
+            background: linear-gradient(180deg, #0ea5e9 0%, #0284c7 100%);
+            border: 4px solid #0369a1;
+            border-radius: 14px;
+            padding: 8px 0;
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 15px;
+            box-shadow: inset 0 4px 12px rgba(0,0,0,0.25);
+        }
+        .race-track::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: radial-gradient(rgba(255,255,255,0.2) 2px, transparent 2px),
+                              radial-gradient(rgba(255,255,255,0.15) 1.5px, transparent 1.5px);
+            background-size: 50px 50px;
+            background-position: 0 0, 25px 25px;
+            animation: waterFlow 3s linear infinite;
+            pointer-events: none;
+        }
+        @keyframes waterFlow {
+            0% { background-position: 0 0, 25px 25px; }
+            100% { background-position: -50px 0, -25px 25px; }
+        }
+
+        .finish-line {
+            position: absolute;
+            right: 55px;
+            top: 0;
+            bottom: 0;
+            width: 12px;
+            background-image: 
+                linear-gradient(45deg, #fff 25%, transparent 25%), 
+                linear-gradient(-45deg, #fff 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #fff 75%), 
+                linear-gradient(-45deg, transparent 75%, #fff 75%);
+            background-size: 12px 12px;
+            background-color: #ef4444;
+            box-shadow: -2px 0 8px rgba(0,0,0,0.3);
+            z-index: 1;
+        }
+        .lane {
+            height: 62px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            border-bottom: 2px dashed rgba(255,255,255,0.35);
+            padding: 0 10px;
+        }
+        .lane:last-child { border-bottom: none; }
+
+        /* ចលនាទាពិតៗ (Realistic Duck Animations) */
+        .duck-wrapper {
+            position: absolute;
+            left: 8px;
+            transition: left 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+            display: flex;
+            align-items: center;
+            z-index: 3;
+        }
+        .duck-svg-container {
+            width: 58px;
+            height: 48px;
+            position: relative;
+            animation: duckFloat 1.6s ease-in-out infinite;
+            transform-origin: center bottom;
+        }
+        .duck-wrapper.is-swimming .duck-svg-container {
+            animation: duckSprint 0.28s ease-in-out infinite;
+        }
+
+        @keyframes duckFloat {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-2.5px) rotate(-2deg); }
+        }
+        @keyframes duckSprint {
+            0%, 100% { transform: translateY(0px) rotate(3deg) scale(1.03); }
+            50% { transform: translateY(-4px) rotate(-4deg) scale(0.98); }
+        }
+
+        /* ចលនាទះស្លាប */
+        .duck-wing {
+            transform-origin: 28px 25px;
+            animation: wingIdle 2.2s ease-in-out infinite;
+        }
+        .duck-wrapper.is-swimming .duck-wing {
+            animation: wingFlapFast 0.16s ease-in-out infinite alternate;
+        }
+        @keyframes wingIdle {
+            0%, 100% { transform: rotate(0deg); }
+            50% { transform: rotate(-5deg); }
+        }
+        @keyframes wingFlapFast {
+            0% { transform: rotate(-12deg) translateY(-1px); }
+            100% { transform: rotate(22deg) translateY(2px); }
+        }
+
+        /* ចលនាធាក់ជើងក្រោមទឹក */
+        .duck-foot-1 {
+            transform-origin: 26px 36px;
+            animation: paddle1 0.9s linear infinite;
+        }
+        .duck-foot-2 {
+            transform-origin: 31px 36px;
+            animation: paddle2 0.9s linear infinite;
+        }
+        .duck-wrapper.is-swimming .duck-foot-1 {
+            animation: paddle1 0.22s linear infinite;
+        }
+        .duck-wrapper.is-swimming .duck-foot-2 {
+            animation: paddle2 0.22s linear infinite;
+        }
+        @keyframes paddle1 {
+            0%, 100% { transform: rotate(-20deg); }
+            50% { transform: rotate(25deg); }
+        }
+        @keyframes paddle2 {
+            0%, 100% { transform: rotate(25deg); }
+            50% { transform: rotate(-20deg); }
+        }
+
+        /* រលកទឹក និងតំណក់ទឹកខ្ទាត */
+        .water-ripple {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.85);
+            stroke-width: 2;
+            stroke-linecap: round;
+            animation: ripplePulse 1.2s ease-out infinite;
+        }
+        .splash-drops {
+            opacity: 0;
+            fill: #ffffff;
+        }
+        .duck-wrapper.is-swimming .splash-drops {
+            animation: splashAnim 0.25s ease-out infinite;
+        }
+        @keyframes ripplePulse {
+            0% { stroke-dasharray: 10 40; stroke-dashoffset: 0; opacity: 0.9; }
+            100% { stroke-dasharray: 25 25; stroke-dashoffset: -30; opacity: 0.2; }
+        }
+        @keyframes splashAnim {
+            0% { opacity: 1; transform: translate(0, 0) scale(1); }
+            100% { opacity: 0; transform: translate(-12px, -8px) scale(0.4); }
+        }
+
+        .player-tag {
+            background: rgba(15, 23, 42, 0.8);
+            color: #fff;
+            font-size: 12px;
+            padding: 3px 8px;
+            border-radius: 6px;
+            margin-left: 4px;
+            white-space: nowrap;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .swim-btn {
+            width: 100%;
+            height: 115px;
+            font-size: 28px;
+            background: linear-gradient(180deg, #f59e0b, #d97706);
+            border-radius: 16px;
+            box-shadow: 0 6px 0 #b45309;
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .swim-btn:active:not(:disabled) {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #b45309;
+        }
+        .swim-btn:disabled {
+            background: #94a3b8;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        th, td {
+            border: 1px solid #cbd5e1;
+            padding: 8px;
+            text-align: center;
+        }
+        th { background: #0284c7; color: white; }
+        tr:nth-child(even) { background: #f8fafc; }
+    </style>
+</head>
+<body>
+
+    <div class="header-bar">
+        <h1>🦆 ហ្គេមប្រណាំងទាហែលទឹក</h1>
+        <button class="sound-toggle" id="btn-sound" onclick="toggleSound()">🔊 សំឡេង៖ បើក</button>
+    </div>
+
+    <div class="container">
+        <!-- ១. ជ្រើសរើសតួនាទី -->
+        <div id="role-selection">
+            <h2 style="text-align: center;">ជ្រើសរើសតួនាទីរបស់អ្នក</h2>
+            <div class="role-cards">
+                <div class="card" onclick="initHost()">
+                    <div class="card-icon">📺</div>
+                    <h3>បង្កើតបន្ទប់ (Host / អេក្រង់ធំ)</h3>
+                    <p>បង្ហាញទីលានប្រណាំង QR Code និងតារាងពិន្ទុលើកុំព្យូទ័រ ឬទូរទស្សន៍</p>
+                </div>
+                <div class="card" onclick="showPlayerJoin()">
+                    <div class="card-icon">📱</div>
+                    <h3>ចូលរួមលេង (Player / ទូរស័ព្ទអ្នកលេង)</h3>
+                    <p>ស្កេន QR ឬវាយលេខកូដ ៤ ខ្ទង់ ដើម្បីចូលរួមប្រណាំង</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ២. ផ្ទាំងសម្រាប់ HOST -->
+        <div id="host-screen" class="hidden">
+            <div class="control-panel">
+                <div class="qr-box">
+                    <div id="qrcode"></div>
+                    <div>
+                        <div style="font-size: 13px; color: #64748b;">លេខកូដបន្ទប់ (Room Code):</div>
+                        <div class="room-badge" id="host-room-code">....</div>
+                        <div style="font-size: 12px; color: #0284c7;">ស្កេន QR ឬវាយលេខកូដនេះ</div>
+                    </div>
+                </div>
+
+                <div>
+                    <label style="font-weight: bold;">ចម្ងាយប្រណាំង (ម៉ែត្រ):</label>
+                    <input type="number" id="race-distance" value="100" min="20" max="1000" style="width: 110px; margin: 5px 0 0 0; display: block;">
+                </div>
+
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-start" id="btn-start" onclick="startCountdown()">▶ ចាប់ផ្តើម</button>
+                    <button class="btn-reset" onclick="resetRace()">🔄 លេងម្តងទៀត</button>
+                </div>
+            </div>
+
+            <div style="text-align: center; font-size: 20px; font-weight: bold; margin-bottom: 10px;">
+                រយៈពេល៖ <span id="host-timer" style="color: #dc2626;">00.00</span> វិនាទី
+            </div>
+
+            <div class="race-track" id="host-track">
+                <!-- ផ្ទាំងរាប់ថយក្រោយលើកុំព្យូទ័រ -->
+                <div id="host-countdown-overlay" class="countdown-overlay hidden">
+                    <div id="host-countdown-text" class="countdown-text">3</div>
+                </div>
+                <div class="finish-line"></div>
+                <div id="host-lanes">
+                    <p style="text-align: center; color: white; padding: 20px;">កំពុងរង់ចាំអ្នកលេងចុះឈ្មោះចូលបន្ទប់...</p>
+                </div>
+            </div>
+
+            <h3 style="text-align: center;">🏆 តារាងចំណាត់ថ្នាក់ និងពិន្ទុ</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ចំណាត់ថ្នាក់</th>
+                        <th>ឈ្មោះអ្នកលេង</th>
+                        <th>ចម្ងាយហែលបាន</th>
+                        <th>រយៈពេល (វិនាទី)</th>
+                        <th>ពិន្ទុសរុប</th>
+                    </tr>
+                </thead>
+                <tbody id="host-leaderboard"></tbody>
+            </table>
+        </div>
+
+        <!-- ៣. ផ្ទាំងចុះឈ្មោះសម្រាប់ PLAYER -->
+        <div id="player-join-screen" class="hidden">
+            <h2 style="text-align: center;">ចុះឈ្មោះចូលប្រណាំង</h2>
+            <label>លេខកូដបន្ទប់ (៤ ខ្ទង់):</label>
+            <input type="number" id="input-room-code" placeholder="ឧទាហរណ៍៖ 1234">
+            
+            <label>ឈ្មោះរបស់អ្នក:</label>
+            <input type="text" id="input-player-name" placeholder="បញ្ចូលឈ្មោះរបស់អ្នក...">
+            
+            <button class="btn-primary" id="btn-join" onclick="joinRoom()">ចូលរួមបន្ទប់</button>
+            <p id="join-status" style="text-align: center; color: #dc2626; font-weight: bold;"></p>
+        </div>
+
+        <!-- ៤. ផ្ទាំងលេងហ្គេមលើទូរស័ព្ទ -->
+        <div id="player-game-screen" class="hidden">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <span style="background: #dcfce7; color: #166534; padding: 4px 10px; border-radius: 20px; font-size: 13px; font-weight: bold;">✅ បានភ្ជាប់ជោគជ័យ</span>
+                <span style="font-weight: bold; color: #0284c7;" id="player-display-name">ឈ្មោះអ្នកលេង</span>
+            </div>
+
+            <div style="text-align: center; font-weight: bold; margin-bottom: 5px; color: #dc2626; font-size: 18px;" id="player-status-text">
+                សូមរង់ចាំ Host ចុចចាប់ផ្តើម...
+            </div>
+
+            <div class="race-track" id="player-track" style="max-height: 260px; overflow-y: auto;">
+                <!-- ផ្ទាំងរាប់ថយក្រោយលើទូរស័ព្ទ -->
+                <div id="player-countdown-overlay" class="countdown-overlay hidden">
+                    <div id="player-countdown-text" class="countdown-text">3</div>
+                </div>
+                <div class="finish-line"></div>
+                <div id="player-lanes"></div>
+            </div>
+
+            <button class="swim-btn" id="btn-swim" onclick="swim()" disabled>
+                🦆 ចុចហែលទឹក!
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const APP_PREFIX = "khmer-duck-race-2026-";
+        let peer = null;
+        let connections = [];
+        let hostConn = null;
+        let players = {};
+        let gameState = "WAITING"; // WAITING, COUNTDOWN, RACING, FINISHED
+        let countdownVal = "";
+        let lastPlayerCountdown = "";
+        let targetDistance = 100;
+        let startTime = 0;
+        let timerInterval = null;
+        let countdownInterval = null;
+        let syncInterval = null;
+        let soundEnabled = true;
+
+        const DUCK_THEMES = [
+            { body: "#facc15", wing: "#eab308", head: "#facc15" },
+            { body: "#fb923c", wing: "#ea580c", head: "#fb923c" },
+            { body: "#f8fafc", wing: "#cbd5e1", head: "#f8fafc" },
+            { body: "#a3e635", wing: "#65a30d", head: "#15803d" },
+            { body: "#f472b6", wing: "#db2777", head: "#f472b6" },
+            { body: "#38bdf8", wing: "#0284c7", head: "#38bdf8" }
+        ];
+
+        function createRealisticDuckSVG(themeIndex = 0) {
+            const theme = DUCK_THEMES[themeIndex % DUCK_THEMES.length];
+            return `
+            <div class="duck-svg-container">
+                <svg viewBox="0 0 70 55" width="58" height="48">
+                    <circle class="splash-drops" cx="10" cy="36" r="2.5" />
+                    <circle class="splash-drops" cx="6" cy="30" r="2" />
+                    <circle class="splash-drops" cx="14" cy="28" r="1.8" />
+                    <g class="duck-foot-1" opacity="0.85">
+                        <path d="M 26 36 L 20 46 L 26 48 L 28 45 Z" fill="#ea580c" />
+                    </g>
+                    <g class="duck-foot-2" opacity="0.95">
+                        <path d="M 32 36 L 26 46 L 32 48 L 34 45 Z" fill="#f97316" />
+                    </g>
+                    <path d="M 12 31 Q 10 20 20 22 Q 34 22 44 26 Q 48 33 42 38 Q 22 40 12 31 Z" fill="${theme.body}" stroke="#854d0e" stroke-width="1.2"/>
+                    <path d="M 12 31 L 6 24 L 16 26 Z" fill="${theme.wing}" stroke="#854d0e" stroke-width="1"/>
+                    <circle cx="43" cy="18" r="9.5" fill="${theme.head}" stroke="#854d0e" stroke-width="1.2"/>
+                    <path d="M 51 17 Q 62 16 63 20 Q 61 23 51 22 Z" fill="#f97316" stroke="#9a3412" stroke-width="1"/>
+                    <circle cx="57" cy="18.5" r="0.8" fill="#7c2d12"/>
+                    <circle cx="46" cy="15.5" r="2.3" fill="#0f172a"/>
+                    <circle cx="46.8" cy="14.7" r="0.8" fill="#ffffff"/>
+                    <g class="duck-wing">
+                        <path d="M 20 27 Q 31 23 37 29 Q 31 35 19 32 Z" fill="${theme.wing}" stroke="#854d0e" stroke-width="1"/>
+                    </g>
+                    <path class="water-ripple" d="M 8 38 Q 28 43 52 38" />
+                    <path class="water-ripple" d="M 14 42 Q 30 46 46 42" style="animation-delay: 0.4s;" />
+                </svg>
+            </div>`;
+        }
+
+        // ==================== ប្រព័ន្ធបង្កើតសំឡេង ====================
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) audioCtx = new AudioContext();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            document.getElementById('btn-sound').innerText = soundEnabled ? "🔊 សំឡេង៖ បើក" : "🔇 សំឡេង៖ បិទ";
+            if (soundEnabled) playQuack();
+        }
+
+        function playQuack() {
+            if (!soundEnabled) return;
+            initAudio();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            const now = audioCtx.currentTime;
+            osc.frequency.setValueAtTime(320, now);
+            osc.frequency.exponentialRampToValueAtTime(520, now + 0.06);
+            osc.frequency.exponentialRampToValueAtTime(220, now + 0.16);
+            gain.gain.setValueAtTime(0.25, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.16);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(now);
+            osc.stop(now + 0.16);
+        }
+
+        // សំឡេងប៊ីបរាប់ថយក្រោយ (3, 2, 1)
+        function playCountdownBeep(isGo = false) {
+            if (!soundEnabled) return;
+            initAudio();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = isGo ? 'triangle' : 'sine';
+            const now = audioCtx.currentTime;
+            
+            if (isGo) {
+                osc.frequency.setValueAtTime(880, now);
+                osc.frequency.exponentialRampToValueAtTime(1174.66, now + 0.15);
+                gain.gain.setValueAtTime(0.35, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.45);
+            } else {
+                osc.frequency.setValueAtTime(523.25, now);
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            }
+        }
+
+        function playWinSound() {
+            if (!soundEnabled) return;
+            initAudio();
+            const notes = [523.25, 659.25, 783.99, 1046.50];
+            notes.forEach((freq, i) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                const now = audioCtx.currentTime + (i * 0.1);
+                osc.frequency.setValueAtTime(freq, now);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            });
+        }
+
+        window.onload = () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomFromUrl = urlParams.get('room');
+            if (roomFromUrl && roomFromUrl.length === 4) {
+                showPlayerJoin();
+                document.getElementById('input-room-code').value = roomFromUrl;
+            }
+        };
+
+        // ==================== មុខងារ HOST ====================
+        function initHost() {
+            initAudio();
+            document.getElementById('role-selection').classList.add('hidden');
+            document.getElementById('host-screen').classList.remove('hidden');
+
+            const roomCode = Math.floor(1000 + Math.random() * 9000).toString();
+            peer = new Peer(APP_PREFIX + roomCode);
+
+            peer.on('open', () => {
+                document.getElementById('host-room-code').innerText = roomCode;
+                const qrContainer = document.getElementById('qrcode');
+                qrContainer.innerHTML = "";
+                const baseUrl = window.location.href.split('?')[0];
+                const qrData = baseUrl.startsWith('http') ? `${baseUrl}?room=${roomCode}` : roomCode;
+
+                new QRCode(qrContainer, {
+                    text: qrData,
+                    width: 85,
+                    height: 85,
+                    colorDark : "#0369a1",
+                    colorLight : "#ffffff"
+                });
+            });
+
+            peer.on('error', () => initHost());
+
+            peer.on('connection', (conn) => {
+                connections.push(conn);
+
+                conn.on('data', (data) => {
+                    if (data.type === 'JOIN') {
+                        const colorIdx = Object.keys(players).length;
+                        players[conn.peer] = {
+                            id: conn.peer,
+                            name: data.name,
+                            distance: 0,
+                            finished: false,
+                            time: 0,
+                            score: 0,
+                            lastSwimTime: 0,
+                            colorIndex: colorIdx
+                        };
+                        playQuack();
+                        updateHostUI();
+                        broadcastState();
+                    } 
+                    else if (data.type === 'SWIM' && gameState === 'RACING') {
+                        let p = players[conn.peer];
+                        if (p && !p.finished) {
+                            p.distance += 2;
+                            p.lastSwimTime = Date.now();
+                            if (p.distance >= targetDistance) {
+                                p.distance = targetDistance;
+                                p.finished = true;
+                                p.time = ((Date.now() - startTime) / 1000).toFixed(2);
+                                const finishedCount = Object.values(players).filter(x => x.finished).length;
+                                p.score += Math.max(10, 100 - (finishedCount - 1) * 20);
+                                playWinSound();
+                            }
+                            updateHostUI();
+                            checkAllFinished();
+                        }
+                    }
+                });
+
+                conn.on('close', () => {
+                    delete players[conn.peer];
+                    connections = connections.filter(c => c !== conn);
+                    updateHostUI();
+                    broadcastState();
+                });
+            });
+
+            syncInterval = setInterval(() => {
+                updateHostUI();
+                broadcastState();
+            }, 100);
+        }
+
+        function showCountdownBanner(overlayId, textId, val) {
+            const overlay = document.getElementById(overlayId);
+            const textEl = document.getElementById(textId);
+            if (!val) {
+                overlay.classList.add('hidden');
+                return;
+            }
+            overlay.classList.remove('hidden');
+            textEl.innerText = val;
+            textEl.className = val === 'GO!' ? 'countdown-text countdown-go' : 'countdown-text';
+            // បង្ខំឱ្យ Animation លោតសារជាថ្មីរាល់ពេលប្តូរលេខ
+            textEl.style.animation = 'none';
+            textEl.offsetHeight; 
+            textEl.style.animation = null;
+        }
+
+        function startCountdown() {
+            if (Object.keys(players).length === 0) {
+                alert("សូមរង់ចាំអ្នកលេងចូលរួមយ៉ាងតិច ១ នាក់សិន!");
+                return;
+            }
+            if (gameState === 'COUNTDOWN' || gameState === 'RACING') return;
+
+            targetDistance = parseInt(document.getElementById('race-distance').value) || 100;
+            gameState = "COUNTDOWN";
+            document.getElementById('btn-start').disabled = true;
+
+            Object.values(players).forEach(p => {
+                p.distance = 0;
+                p.finished = false;
+                p.time = 0;
+                p.lastSwimTime = 0;
+            });
+            document.getElementById('host-timer').innerText = "00.00";
+            updateHostUI();
+
+            let count = 3;
+            countdownVal = count.toString();
+            showCountdownBanner('host-countdown-overlay', 'host-countdown-text', countdownVal);
+            playCountdownBeep(false);
+            broadcastState();
+
+            clearInterval(countdownInterval);
+            countdownInterval = setInterval(() => {
+                count--;
+                if (count > 0) {
+                    countdownVal = count.toString();
+                    showCountdownBanner('host-countdown-overlay', 'host-countdown-text', countdownVal);
+                    playCountdownBeep(false);
+                    broadcastState();
+                } else if (count === 0) {
+                    countdownVal = "GO!";
+                    showCountdownBanner('host-countdown-overlay', 'host-countdown-text', countdownVal);
+                    playCountdownBeep(true);
+                    beginActualRace();
+                } else {
+                    clearInterval(countdownInterval);
+                    countdownVal = "";
+                    showCountdownBanner('host-countdown-overlay', 'host-countdown-text', "");
+                    broadcastState();
+                }
+            }, 950);
+        }
+
+        function beginActualRace() {
+            gameState = "RACING";
+            startTime = Date.now();
+
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+                document.getElementById('host-timer').innerText = elapsed;
+            }, 50);
+
+            updateHostUI();
+            broadcastState();
+        }
+
+        function resetRace() {
+            gameState = "WAITING";
+            countdownVal = "";
+            clearInterval(countdownInterval);
+            clearInterval(timerInterval);
+            showCountdownBanner('host-countdown-overlay', 'host-countdown-text', "");
+            document.getElementById('host-timer').innerText = "00.00";
+            document.getElementById('btn-start').disabled = false;
+
+            Object.values(players).forEach(p => {
+                p.distance = 0;
+                p.finished = false;
+                p.time = 0;
+                p.lastSwimTime = 0;
+            });
+
+            updateHostUI();
+            broadcastState();
+        }
+
+        function checkAllFinished() {
+            const allPlayers = Object.values(players);
+            if (allPlayers.length > 0 && allPlayers.every(p => p.finished)) {
+                gameState = "FINISHED";
+                clearInterval(timerInterval);
+                document.getElementById('btn-start').disabled = false;
+                broadcastState();
+            }
+        }
+
+        function broadcastState() {
+            const payload = {
+                type: 'SYNC_STATE',
+                gameState: gameState,
+                countdownVal: countdownVal,
+                targetDistance: targetDistance,
+                players: players,
+                timer: document.getElementById('host-timer').innerText
+            };
+            connections.forEach(conn => {
+                if (conn.open) conn.send(payload);
+            });
+        }
+
+        function updateHostUI() {
+            renderTrack('host-lanes', players, targetDistance);
+            const tbody = document.getElementById('host-leaderboard');
+            const sorted = Object.values(players).sort((a, b) => {
+                if (a.finished && b.finished) return a.time - b.time;
+                if (a.finished) return -1;
+                if (b.finished) return 1;
+                return b.distance - a.distance;
+            });
+
+            tbody.innerHTML = sorted.map((p, index) => `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td><strong>${p.name}</strong></td>
+                    <td>${p.distance} / ${targetDistance} ម៉ែត្រ</td>
+                    <td>${p.finished ? p.time + ' វិនាទី' : 'កំពុងហែល...'}</td>
+                    <td><strong>${p.score}</strong></td>
+                </tr>
+            `).join('');
+        }
+
+        // ==================== មុខងារ PLAYER ====================
+        function showPlayerJoin() {
+            document.getElementById('role-selection').classList.add('hidden');
+            document.getElementById('player-join-screen').classList.remove('hidden');
+        }
+
+        function joinRoom() {
+            initAudio();
+            const code = document.getElementById('input-room-code').value.trim();
+            const name = document.getElementById('input-player-name').value.trim();
+            const statusEl = document.getElementById('join-status');
+
+            if (code.length !== 4 || !name) {
+                statusEl.innerText = "សូមបញ្ចូលលេខកូដ ៤ ខ្ទង់ និងឈ្មោះរបស់អ្នក!";
+                return;
+            }
+
+            statusEl.style.color = "#0284c7";
+            statusEl.innerText = "កំពុងភ្ជាប់ទៅកាន់កុំព្យូទ័រ...";
+            document.getElementById('btn-join').disabled = true;
+
+            peer = new Peer();
+            peer.on('open', () => {
+                hostConn = peer.connect(APP_PREFIX + code);
+
+                hostConn.on('open', () => {
+                    playQuack();
+                    hostConn.send({ type: 'JOIN', name: name });
+                    document.getElementById('player-join-screen').classList.add('hidden');
+                    document.getElementById('player-game-screen').classList.remove('hidden');
+                    document.getElementById('player-display-name').innerText = "🦆 " + name;
+                });
+
+                hostConn.on('data', (data) => {
+                    if (data.type === 'SYNC_STATE') {
+                        renderTrack('player-lanes', data.players, data.targetDistance);
+                        
+                        // បង្ហាញការរាប់ថយក្រោយលើទូរស័ព្ទ និងបន្លឺសំឡេង
+                        if (data.countdownVal !== lastPlayerCountdown) {
+                            lastPlayerCountdown = data.countdownVal;
+                            showCountdownBanner('player-countdown-overlay', 'player-countdown-text', data.countdownVal);
+                            if (data.countdownVal === '3' || data.countdownVal === '2' || data.countdownVal === '1') {
+                                playCountdownBeep(false);
+                            } else if (data.countdownVal === 'GO!') {
+                                playCountdownBeep(true);
+                                if (navigator.vibrate) navigator.vibrate(100);
+                            }
+                        }
+
+                        const btnSwim = document.getElementById('btn-swim');
+                        const statusText = document.getElementById('player-status-text');
+                        const myData = data.players[peer.id];
+
+                        if (data.gameState === 'WAITING') {
+                            btnSwim.disabled = true;
+                            statusText.innerText = "⏳ សូមរង់ចាំ Host ចុចចាប់ផ្តើម...";
+                        } else if (data.gameState === 'COUNTDOWN') {
+                            btnSwim.disabled = true;
+                            statusText.innerText = "🚦 ត្រៀមខ្លួន! ជិតចាប់ផ្តើមហើយ...";
+                        } else if (data.gameState === 'RACING') {
+                            if (myData && myData.finished) {
+                                btnSwim.disabled = true;
+                                statusText.innerText = `🎉 អ្នកដល់ទីហើយ! រយៈពេល៖ ${myData.time} វិនាទី`;
+                            } else {
+                                btnSwim.disabled = false;
+                                statusText.innerText = `🔥 កំពុងប្រណាំង! (${data.timer} វិនាទី)`;
+                            }
+                        } else if (data.gameState === 'FINISHED') {
+                            btnSwim.disabled = true;
+                            statusText.innerText = "🏁 ការប្រណាំងបានបញ្ចប់! មើលលទ្ធផលលើអេក្រង់ធំ";
+                        }
+                    }
+                });
+
+                hostConn.on('close', () => {
+                    alert("បានផ្តាច់ការតភ្ជាប់ពីបន្ទប់!");
+                    location.reload();
+                });
+            });
+
+            peer.on('error', () => {
+                statusEl.style.color = "#dc2626";
+                statusEl.innerText = "រកមិនឃើញលេខកូដបន្ទប់នេះទេ! សូមពិនិត្យម្តងទៀត។";
+                document.getElementById('btn-join').disabled = false;
+            });
+        }
+
+        function swim() {
+            if (hostConn && hostConn.open) {
+                hostConn.send({ type: 'SWIM' });
+                playQuack();
+                if (navigator.vibrate) navigator.vibrate(20);
+            }
+        }
+
+        function renderTrack(containerId, playersObj, maxDist) {
+            const container = document.getElementById(containerId);
+            const playerList = Object.values(playersObj);
+            const now = Date.now();
+
+            if (playerList.length === 0) {
+                container.innerHTML = `<p style="text-align: center; color: white; padding: 20px;">កំពុងរង់ចាំអ្នកលេងចុះឈ្មោះចូលបន្ទប់...</p>`;
+                return;
+            }
+
+            container.innerHTML = playerList.map(p => {
+                const percent = Math.min(78, (p.distance / maxDist) * 78);
+                const isSwimming = (now - (p.lastSwimTime || 0)) < 350;
+                const swimClass = isSwimming ? 'is-swimming' : '';
+                const duckSvg = createRealisticDuckSVG(p.colorIndex || 0);
+
+                return `
+                    <div class="lane">
+                        <div class="duck-wrapper ${swimClass}" style="left: ${percent}%;">
+                            ${duckSvg}
+                            <span class="player-tag">${p.name} (${p.distance}m)</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+    </script>
+</body>
+</html>
